@@ -1,0 +1,18 @@
+<component name="ArtifactManager">
+  <artifact type="exploded-war" name="turtle_web">
+    <output-path>$PROJECT_DIR$/out/artifacts/turtle_web</output-path>
+    <root id="root">
+      <element id="directory" name="WEB-INF">
+        <element id="directory" name="classes">
+          <element id="module-output" name="web" />
+        </element>
+        <element id="directory" name="lib">
+          <element id="archive" name="interfaces-1.0-SNAPSHOT.jar">
+            <element id="module-output" name="interfaces" />
+          </element>
+        </element>
+      </element>
+      <element id="javaee-facet-resources" facet="web/web/Web" />
+    </root>
+  </artifact>
+</component>
