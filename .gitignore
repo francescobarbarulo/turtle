@@ -1,2 +1,4 @@
 out/
 target/
+*.beam
+dsmt-docker/

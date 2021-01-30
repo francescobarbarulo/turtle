@@ -2,8 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/ejbs/ejbs.iml" filepath="$PROJECT_DIR$/ejbs/ejbs.iml" />
+      <module fileurl="file://$PROJECT_DIR$/erlang/erlang.iml" filepath="$PROJECT_DIR$/erlang/erlang.iml" />
       <module fileurl="file://$PROJECT_DIR$/interfaces/interfaces.iml" filepath="$PROJECT_DIR$/interfaces/interfaces.iml" />
+      <module fileurl="file://$PROJECT_DIR$/testRunner/testRunner.iml" filepath="$PROJECT_DIR$/testRunner/testRunner.iml" />
       <module fileurl="file://$PROJECT_DIR$/turtle.iml" filepath="$PROJECT_DIR$/turtle.iml" />
       <module fileurl="file://$PROJECT_DIR$/web/web.iml" filepath="$PROJECT_DIR$/web/web.iml" />
     </modules>

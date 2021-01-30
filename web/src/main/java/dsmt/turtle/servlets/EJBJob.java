@@ -1,6 +1,6 @@
 package dsmt.turtle.servlets;
 
-import dsmt.turtle.interf.TestRunner;
+import dsmt.turtle.ejbs.ErlangProducerBean;
 
 import javax.ejb.EJB;
 import javax.servlet.ServletException;
@@ -12,38 +12,41 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 import java.io.*;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @WebServlet(name = "EJBJob", urlPatterns = {"/"})
 @MultipartConfig
 public class EJBJob extends HttpServlet {
     @EJB
-    private TestRunner testRunner;
+    private ErlangProducerBean erlangProducer;
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String sessionId = request.getSession().getId();
         Part classFile = request.getPart("class");
         Part testClassFile = request.getPart("testclass");
 
+        response.setContentType("text/html");
+        if (classFile.getSize() == 0 || testClassFile.getSize() == 0){
+            PrintWriter out = response.getWriter();
+            out.println("<p>No file received</p>");
+            return;
+        }
+
         String classFileName = Paths.get(classFile.getSubmittedFileName()).getFileName().toString();
         String testClassFileName = Paths.get(testClassFile.getSubmittedFileName()).getFileName().toString();
+        String[] files = new String[]{classFileName, testClassFileName};
+        request.setAttribute("files", files);
 
-        PrintWriter out = response.getWriter();
+        String result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
+        request.setAttribute("result", result);
 
-        String result = testRunner.doTest(classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
-
-        response.setContentType("text/html");
-        out.println("<h3>Uploaded</h3>" +
-                "<ul>" +
-                "<li>" + classFileName + "</li>" +
-                "<li>" + testClassFileName + "</li>" +
-                "</ul>" +
-                "<h3>Test result</h3>" +
-                "<pre>" + result + "</pre>");
+        request.getRequestDispatcher("response.jsp").forward(request, response);
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/html");
-        request.getRequestDispatcher("/index.jsp").forward(request, response);
+        request.getRequestDispatcher("index.jsp").forward(request, response);
     }
 
     private String getContent(Part part) throws IOException {

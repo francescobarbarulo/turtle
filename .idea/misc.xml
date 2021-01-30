@@ -6,9 +6,9 @@
   <component name="MavenProjectsManager">
     <option name="originalFiles">
       <list>
-        <option value="$PROJECT_DIR$/ejbs/pom.xml" />
         <option value="$PROJECT_DIR$/interfaces/pom.xml" />
         <option value="$PROJECT_DIR$/web/pom.xml" />
+        <option value="$PROJECT_DIR$/testRunner/pom.xml" />
       </list>
     </option>
   </component>
