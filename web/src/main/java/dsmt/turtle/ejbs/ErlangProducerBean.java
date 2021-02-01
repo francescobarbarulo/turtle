@@ -1,31 +1,43 @@
 package dsmt.turtle.ejbs;
 
-import javax.ejb.Stateless;
+import javax.annotation.PreDestroy;
+import javax.ejb.*;
 
 import com.ericsson.otp.erlang.*;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Future;
 
-@Stateless(name = "ErlangProducerEJB")
+// https://javaee.github.io/tutorial/ejb-basicexamples003.html#_managing_concurrent_access_in_a_singleton_session_bean
+@ConcurrencyManagement(ConcurrencyManagementType.BEAN)
+@Singleton(name = "ErlangProducerEJB")
 public class ErlangProducerBean {
-    private static final String nodeName = "java@master";
+    private static final String thisNodeName = "java_node@master";
     private static final String cookie = "turtle";
     private static final String serverNodeName = "master_node@master";
     private static final String serverRegisteredName = "master";
-    private static final AtomicInteger Id = new AtomicInteger(0);
+    private static final long timeout = 15000;
 
     private final OtpNode node;
 
     public ErlangProducerBean() throws IOException {
-        node = new OtpNode(nodeName, cookie);
+        node = new OtpNode(thisNodeName, cookie);
     }
 
-    public String send(String sessionId, String classFileName, String classFileContent, String testClassFileName, String testClassContent) {
-        try {
-            OtpMbox mbox = node.createMbox("default_mbox_" + Id.getAndIncrement());
-            System.out.println("Created mailbox " + mbox.getName());
+    @Asynchronous
+    public Future<String> send(String sessionId, String classFileName, String classFileContent, String testClassFileName, String testClassContent) {
+        OtpMbox mbox;
+        /*
+            If multiple requests arrive concurrently the only part
+            on which the threads must synchronize is the creation
+            of a new mailbox starting from the shared node instance
+         */
+        synchronized (node) {
+            mbox = node.createMbox();
+        }
+        System.out.println("Created mailbox " + mbox.self());
 
+        try {
             OtpErlangTuple content = new OtpErlangTuple(new OtpErlangObject[]{
                     new OtpErlangString(classFileName),
                     new OtpErlangString(classFileContent),
@@ -41,19 +53,32 @@ public class ErlangProducerBean {
             OtpErlangTuple req = new OtpErlangTuple(new OtpErlangObject[]{mbox.self(), payload});
 
             mbox.send(serverRegisteredName, serverNodeName, req);
-            System.out.println("Request sent: " + req.toString());
+            System.out.println("[" + mbox.self() + "] Request sent");
 
-            OtpErlangObject res = mbox.receive(5000);
+            String msg;
+            OtpErlangObject res = mbox.receive(timeout);
+
+            if (res == null) {
+                msg = "Something went wrong. Please retry.";
+                System.out.println("Timeout expired on mailbox " + mbox.self());
+            } else {
+                msg = res.toString().replaceAll("\"", "");
+                System.out.println("Response received on mailbox " + mbox.self());
+            }
+
             mbox.close();
-            
-            if (res == null)
-                return "Service not available";
 
-            System.out.println("Response received on mailbox " + mbox.getName() + ": " + res.toString());
-            return res.toString().replaceAll("\"", "");
+            return new AsyncResult<>(msg);
+
         } catch (Exception e) {
             e.printStackTrace();
-            return "Error";
+            mbox.close();
+            return new AsyncResult<>("Error");
         }
+    }
+
+    @PreDestroy
+    private void terminate(){
+        node.close();
     }
 }

@@ -12,7 +12,8 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
 import java.io.*;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @WebServlet(name = "EJBJob", urlPatterns = {"/"})
@@ -22,26 +23,44 @@ public class EJBJob extends HttpServlet {
     private ErlangProducerBean erlangProducer;
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+
+        String userAgent = request.getHeader("User-Agent");
+
         String sessionId = request.getSession().getId();
         Part classFile = request.getPart("class");
         Part testClassFile = request.getPart("testclass");
 
-        response.setContentType("text/html");
+        if (classFile == null || testClassFile == null) {
+            // An incorrect self-made post request has been issued
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return;
+        }
+
         if (classFile.getSize() == 0 || testClassFile.getSize() == 0){
-            PrintWriter out = response.getWriter();
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             out.println("<p>No file received</p>");
             return;
         }
 
         String classFileName = Paths.get(classFile.getSubmittedFileName()).getFileName().toString();
         String testClassFileName = Paths.get(testClassFile.getSubmittedFileName()).getFileName().toString();
-        String[] files = new String[]{classFileName, testClassFileName};
-        request.setAttribute("files", files);
 
-        String result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
-        request.setAttribute("result", result);
+        Future<String> result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
 
-        request.getRequestDispatcher("response.jsp").forward(request, response);
+        try {
+            if (userAgent.contains("curl")) {
+                out.println(result.get());
+            } else {
+                String[] files = new String[]{classFileName, testClassFileName};
+                request.setAttribute("files", files);
+                request.setAttribute("result", result.get());
+                request.getRequestDispatcher("response.jsp").forward(request, response);
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
