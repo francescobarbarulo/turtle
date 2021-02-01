@@ -3,64 +3,67 @@
 %% API
 -export([start/0]).
 
-master_loop(Count, []) ->
-  timer:sleep(2000),
-  ActiveHosts = setup(),
-  master_loop(Count, ActiveHosts);
+master_setup() ->
+  process_flag(trap_exit, true),
+  setup(),
+  master_loop(0).
 
-master_loop(Count, Hosts) ->
+master_loop(Count) ->
+  io:format("[*] Wainting for a message...\n"),
   receive
-    {From, Msg} ->
-      Index = (Count rem length(Hosts)) + 1,
-      Host = lists:nth(Index, Hosts),
-      io:format("Received: ~p from ~p\n", [Msg, From]),
-      io:format("rpc on ~p\n", [Host]),
-      case rpc:call(Host, test_runner, test, [Msg]) of
-        {badrpc, _} ->
-          io:format("Detected host ~p down\n", [Host]),
-          self() ! {From, Msg},
-          ActiveHosts = lists:delete(Host, Hosts),
-          io:format("Active hosts: ~p\n", [ActiveHosts]),
-          master_loop(Count, ActiveHosts);
-        Reply ->
-          io:format("Got: ~p\n", [Reply]),
-          From ! Reply,
-          master_loop(Count+1, Hosts)
-      end
+    {FromMailbox, Msg} ->
+      Index = (Count rem length(nodes())) + 1,
+      TargetNode = lists:nth(Index, nodes()),
+      io:format("\n---------------------------------------------\n"),
+      io:format("[>] Received new job from ~p\n", [FromMailbox]),
+      io:format("[>] Spawning new process on node ~p\n", [TargetNode]),
+      Master = self(),
+      spawn_link(TargetNode, test_runner, start, [Master, {FromMailbox, Msg}]),
+      master_loop(Count+1);
+
+    {RemotePid, reply, {DestMailbox, Msg}} ->
+      io:format("\n---------------------------------------------\n"),
+      io:format("[<] Received response from process ~p\n", [RemotePid]),
+      io:format("[<] Replying to mailbox ~p\n", [DestMailbox]),
+      DestMailbox ! Msg,
+      master_loop(Count);
+
+    {'EXIT', FromPid, normal} ->
+      io:format("[I] Spawnd process ~p exited successfully\n", [FromPid]),
+      master_loop(Count);
+
+    {'EXIT', FromPid, noconnection} ->
+      io:format("[E] Spawnd process ~p exited unexpectedly: job lost\n", [FromPid]),
+      master_loop(Count);
+
+    _ -> error
   end.
 
 read_config(File) ->
-  {ok, ConfBin} = file:read_file(File),
-  ConfString = binary:bin_to_list(ConfBin),
-  Hosts = string:split(ConfString, "\n", all),
-  hosts_to_atom(Hosts).
+  {ok, Bin} = file:read_file(File),
+  String = binary:bin_to_list(Bin),
+  Nodes = string:split(String, "\n", all),
+  nodes_to_atoms(Nodes).
 
-hosts_to_atom(Hosts) ->
-  hosts_to_atom(Hosts, []).
+nodes_to_atoms(Nodes) ->
+  nodes_to_atoms(Nodes, []).
 
-hosts_to_atom([], Atoms) -> Atoms;
-hosts_to_atom([H|T], Atoms) ->
-  hosts_to_atom(T, Atoms ++ [list_to_atom(H)]).
+nodes_to_atoms([], Atoms) -> Atoms;
+nodes_to_atoms([H|T], Atoms) ->
+  nodes_to_atoms(T, Atoms ++ [list_to_atom(H)]).
 
-connect_to_hosts(Hosts) ->
-  connect_to_hosts(Hosts, []).
-
-connect_to_hosts([], ActiveHosts) -> ActiveHosts;
-connect_to_hosts([H|T], ActiveHosts) ->
-  case net_adm:ping(H) of
-    pong -> connect_to_hosts(T, ActiveHosts ++ [H]);
-    pang -> connect_to_hosts(T, ActiveHosts)
-  end.
+connect_to_nodes([]) -> ok;
+connect_to_nodes([H|T]) ->
+  net_adm:ping(H),
+  connect_to_nodes(T).
 
 setup() ->
-  Hosts = read_config("turtle.conf"),
-  io:format("Configured hosts: ~p\n", [Hosts]),
-  ActiveHosts = connect_to_hosts(Hosts),
-  io:format("Active hosts: ~p\n", [ActiveHosts]),
-  ActiveHosts.
+  Nodes = read_config("nodes.conf"),
+  io:format("[I] Configured nodes: ~p\n", [Nodes]),
+  connect_to_nodes(Nodes),
+  io:format("[I] Active nodes: ~p\n", [nodes()]).
 
 start() -> start(master).
 start(Name) ->
-  ActiveHosts = setup(),
-  Pid = spawn(node(), fun() -> master_loop(0, ActiveHosts) end),
+  Pid = spawn(node(), fun() -> master_setup() end),
   register(Name, Pid).

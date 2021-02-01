@@ -1,20 +1,23 @@
 -module(test_runner).
--behavior(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2]).
--export([start/0, test/1]).
+-export([start/2, alert_master/0]).
 
-start() ->
-  gen_server:start({local, test_runner}, ?MODULE, [], []).
+start(Master, {Mailbox, Msg}) ->
+  io:format("[~s] New process spawned for client ~p\n", [node(), Mailbox]),
+  Result = process(Msg),
+  io:format("[~s] Replying to master_node\n", [node()]),
+  % timer:sleep(10000), % to simulate a slower machine
+  Master ! {self(), reply, {Mailbox, Result}}.
 
-test(Request) ->
-  gen_server:call(test_runner, Request).
-
-process(Session, ClassFileName, ClassFileContent, TestClassFileName, TestClassFileContent) ->
+process({Session, {ClassFileName, ClassFileContent, TestClassFileName, TestClassFileContent}}) ->
   io:format("Started processing job for ~s\n", [Session]),
+  PidString = pid_to_list(self()),
+  PidList = string:split(PidString, ".", all),
+  Pid = lists:nth(2, PidList),
 
   % Create working directory and saving files
-  CurrentDir = "/tmp/turtle/" ++ Session ++ "/",
+  CurrentDir = "/tmp/turtle/" ++ Session ++ "." ++ Pid ++ "/",
+  io:format("Creating workspace: ~s\n", [CurrentDir]),
   file:make_dir(CurrentDir),
   file:write_file(CurrentDir ++ ClassFileName, ClassFileContent),
   file:write_file(CurrentDir ++ TestClassFileName, TestClassFileContent),
@@ -33,12 +36,5 @@ process(Session, ClassFileName, ClassFileContent, TestClassFileName, TestClassFi
   file:del_dir_r(CurrentDir),
   RunOut.
 
-init(_Args) ->
-  {ok, {}}.
-
-handle_call({Session, {ClassFileName, ClassFileContent, TestClassFileName, TestClassFileContent}}, _From, State) ->
-  Reply = process(Session, ClassFileName, ClassFileContent, TestClassFileName, TestClassFileContent),
-  {reply, Reply, State}.
-
-handle_cast(_Request, _State) ->
-  erlang:error(not_implemented).
+alert_master() ->
+  net_adm:ping(master_node@master).
