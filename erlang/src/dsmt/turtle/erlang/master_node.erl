@@ -1,40 +1,53 @@
 -module(master_node).
 
 %% API
--export([start/0]).
+-export([start/0, stop/0]).
 
 master_setup() ->
   process_flag(trap_exit, true),
-  setup(),
-  master_loop(0).
+  setup(maps:new()).
 
-master_loop(Count) ->
+master_loop(Count, Jobs) ->
+  %io:format("[I] ~p ~p\n", [Count, maps:size(Jobs)]),
+  io:format("-------------------------------------------------------\n"),
   io:format("[*] Wainting for a message...\n"),
   receive
     {FromMailbox, Msg} ->
-      Index = (Count rem length(nodes())) + 1,
-      TargetNode = lists:nth(Index, nodes()),
-      io:format("\n---------------------------------------------\n"),
-      io:format("[>] Received new job from ~p\n", [FromMailbox]),
-      io:format("[>] Spawning new process on node ~p\n", [TargetNode]),
-      Master = self(),
-      spawn_link(TargetNode, test_runner, start, [Master, {FromMailbox, Msg}]),
-      master_loop(Count+1);
+      try (Count rem length(nodes())) + 1 of
+        Index ->
+          TargetNode = lists:nth(Index, nodes()),
+          io:format(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"),
+          io:format("[>] Received new job from ~p\n", [FromMailbox]),
+          io:format("[>] Spawning new process on node ~p\n", [TargetNode]),
+          Master = self(),
+          Pid = spawn_link(TargetNode, test_runner, start, [Master, {FromMailbox, Msg}]),
+          master_loop(Count+1, maps:put(Pid, {FromMailbox, Msg}, Jobs))
+      catch error:badarith ->
+        io:format("[W] All nodes are down\n"),
+        self() ! {FromMailbox, Msg},
+        timer:sleep(2000),
+        setup(Jobs)
+      end;
 
-    {RemotePid, reply, {DestMailbox, Msg}} ->
-      io:format("\n---------------------------------------------\n"),
+    {RemotePid, response, {DestMailbox, Msg}} ->
+      io:format("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"),
       io:format("[<] Received response from process ~p\n", [RemotePid]),
       io:format("[<] Replying to mailbox ~p\n", [DestMailbox]),
       DestMailbox ! Msg,
-      master_loop(Count);
+      master_loop(Count, maps:remove(RemotePid, Jobs));
 
     {'EXIT', FromPid, normal} ->
       io:format("[I] Spawnd process ~p exited successfully\n", [FromPid]),
-      master_loop(Count);
+      master_loop(Count, Jobs);
 
     {'EXIT', FromPid, noconnection} ->
-      io:format("[E] Spawnd process ~p exited unexpectedly: job lost\n", [FromPid]),
-      master_loop(Count);
+      io:format("[E] Spawnd process ~p exited unexpectedly: trying to recover\n", [FromPid]),
+      Request = maps:get(FromPid, Jobs),
+      self() ! Request,
+      master_loop(Count, maps:remove(FromPid, Jobs));
+
+    stop ->
+      io:format("[I] Terminating...\n");
 
     _ -> error
   end.
@@ -57,13 +70,18 @@ connect_to_nodes([H|T]) ->
   net_adm:ping(H),
   connect_to_nodes(T).
 
-setup() ->
+setup(Jobs) ->
+  io:format("[I] Setup\n"),
   Nodes = read_config("nodes.conf"),
   io:format("[I] Configured nodes: ~p\n", [Nodes]),
   connect_to_nodes(Nodes),
-  io:format("[I] Active nodes: ~p\n", [nodes()]).
+  io:format("[I] Active nodes: ~p\n", [nodes()]),
+  master_loop(0, Jobs).
 
 start() -> start(master).
 start(Name) ->
   Pid = spawn(node(), fun() -> master_setup() end),
   register(Name, Pid).
+
+stop() ->
+  {master, node()} ! stop.
