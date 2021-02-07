@@ -63,7 +63,7 @@ nodes_to_atoms(Nodes) ->
 
 nodes_to_atoms([], Atoms) -> Atoms;
 nodes_to_atoms([H|T], Atoms) ->
-  nodes_to_atoms(T, Atoms ++ [list_to_atom(H)]).
+  nodes_to_atoms(T,  [list_to_atom(H)|Atoms]).
 
 connect_to_nodes([]) -> ok;
 connect_to_nodes([H|T]) ->
