@@ -1,6 +1,7 @@
 package dsmt.turtle.servlets;
 
 import dsmt.turtle.ejbs.ErlangProducerBean;
+import dsmt.turtle.websockets.UpdateEndpoint;
 
 import javax.ejb.EJB;
 import javax.servlet.ServletException;
@@ -40,7 +41,7 @@ public class EJBJob extends HttpServlet {
 
         if (classFile.getSize() == 0 || testClassFile.getSize() == 0){
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            out.println("<p>No file received</p>");
+            out.println("No file received");
             return;
         }
 
@@ -49,14 +50,16 @@ public class EJBJob extends HttpServlet {
 
         Future<String> result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
 
+        out.println("OK");
+        out.flush();
+
         try {
             if (userAgent.contains("curl")) {
                 out.println(result.get());
             } else {
-                String[] files = new String[]{classFileName, testClassFileName};
-                request.setAttribute("files", files);
-                request.setAttribute("result", result.get());
-                request.getRequestDispatcher("response.jsp").forward(request, response);
+                System.out.println("Waiting for web async response");
+                UpdateEndpoint.sendAsyncResponse(sessionId, result.get());
+                System.out.println("Replying through web async response");
             }
         } catch (ExecutionException | InterruptedException e) {
             e.printStackTrace();
