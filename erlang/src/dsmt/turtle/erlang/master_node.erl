@@ -8,9 +8,8 @@ master_setup() ->
   setup(maps:new()).
 
 master_loop(Count, Jobs) ->
-  %io:format("[I] ~p ~p\n", [Count, maps:size(Jobs)]),
   io:format("-------------------------------------------------------\n"),
-  io:format("[*] Wainting for a message...\n"),
+  io:format("[*] Waiting for a message...\n"),
   receive
     {FromMailbox, Msg} ->
       try (Count rem length(nodes())) + 1 of
