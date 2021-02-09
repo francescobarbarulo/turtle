@@ -48,7 +48,7 @@ master_loop(Count, Jobs) ->
     stop ->
       io:format("[I] Terminating...\n");
 
-    _ -> error
+    Unexpected -> io:format("~p\n", Unexpected)
   end.
 
 read_config(File) ->
@@ -62,7 +62,7 @@ nodes_to_atoms(Nodes) ->
 
 nodes_to_atoms([], Atoms) -> Atoms;
 nodes_to_atoms([H|T], Atoms) ->
-  nodes_to_atoms(T,  [list_to_atom(H)|Atoms]).
+  nodes_to_atoms(T, [list_to_atom(H)|Atoms]).
 
 connect_to_nodes([]) -> ok;
 connect_to_nodes([H|T]) ->
