@@ -69,8 +69,6 @@ public class ErlangProducerBean {
 
             mbox.close();
 
-            Thread.sleep(10000);
-
             /* async return to servlet */
             return new AsyncResult<>(msg);
 
