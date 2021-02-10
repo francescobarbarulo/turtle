@@ -52,6 +52,7 @@ public class ErlangProducerBean {
 
             OtpErlangTuple req = new OtpErlangTuple(new OtpErlangObject[]{mbox.self(), payload});
 
+            /* actually send the request to the Erlang Master Node using OTP */
             mbox.send(serverRegisteredName, serverNodeName, req);
             System.out.println("[" + mbox.self() + "] Request sent");
 
@@ -68,6 +69,7 @@ public class ErlangProducerBean {
 
             mbox.close();
 
+            /* async return to servlet */
             return new AsyncResult<>(msg);
 
         } catch (Exception e) {

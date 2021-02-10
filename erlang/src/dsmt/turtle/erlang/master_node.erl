@@ -4,13 +4,14 @@
 -export([start/0, stop/0]).
 
 master_setup() ->
+  %% when process exits, send system message to self()
+  %% (used to detect failures on workers with spawn_link)
   process_flag(trap_exit, true),
   setup(maps:new()).
 
 master_loop(Count, Jobs) ->
-  %io:format("[I] ~p ~p\n", [Count, maps:size(Jobs)]),
   io:format("-------------------------------------------------------\n"),
-  io:format("[*] Wainting for a message...\n"),
+  io:format("[*] Waiting for a message...\n"),
   receive
     {FromMailbox, Msg} ->
       try (Count rem length(nodes())) + 1 of

@@ -48,15 +48,16 @@ public class EJBJob extends HttpServlet {
         String classFileName = Paths.get(classFile.getSubmittedFileName()).getFileName().toString();
         String testClassFileName = Paths.get(testClassFile.getSubmittedFileName()).getFileName().toString();
 
+        /* submit request to the Java-embedded master node */
         Future<String> result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
 
         out.println("OK");
-        out.flush();
+        out.flush();        // this terminates the reply to the browser
 
         try {
-            if (userAgent.contains("curl")) {
+            if (userAgent.contains("curl")) {   /* if request comes form curl, then blocking get */
                 out.println(result.get());
-            } else {
+            } else {    /* else if request comes from browser, reply through websocket */
                 System.out.println("Waiting for web async response");
                 UpdateEndpoint.sendAsyncResponse(sessionId, result.get());
                 System.out.println("Replying through web async response");
@@ -67,6 +68,7 @@ public class EJBJob extends HttpServlet {
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        /* reply with presentation page, properly formatted */
         response.setContentType("text/html");
         request.getRequestDispatcher("index.jsp").forward(request, response);
     }
