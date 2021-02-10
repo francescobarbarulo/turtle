@@ -6,16 +6,13 @@ import javax.websocket.Session;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-// https://docs.oracle.com/javaee/7/tutorial/websocket011.htm
+// https://javaee.github.io/tutorial/websocket011.html
 @ServerEndpoint("/update/{httpSession}")
 public class UpdateEndpoint {
-    private final static Map<String, Session> sessions = new HashMap<>();
-
-    public UpdateEndpoint() {
-    }
+    private final static Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     @OnOpen
     public void onOpen(@PathParam("httpSession") String httpSession, Session session) {
