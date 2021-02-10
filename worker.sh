@@ -10,6 +10,6 @@ mkdir -p $TEMPDIR
 cp -rp erlang/junit/* $TEMPDIR
 
 (cd $ERLDIR && erlc test_runner.erl)
-(cd $ERLDIR && erl -noshell -sname test_runner@master -setcookie turtle)
+(cd $ERLDIR && erl -noshell -sname test_runner@$1 -setcookie turtle)
 
 
