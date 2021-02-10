@@ -20,6 +20,7 @@ public class UpdateEndpoint {
     @OnOpen
     public void onOpen(@PathParam("httpSession") String httpSession, Session session) {
         System.out.println("Opened socket with " + httpSession);
+        /* associate http session with websocket session */
         sessions.put(httpSession, session);
     }
 
@@ -30,6 +31,7 @@ public class UpdateEndpoint {
     }
 
     public static void sendAsyncResponse(String httpSession, String text) throws IOException {
+        /* retrieve websocket session from http session, and send reply */
         Session session = sessions.get(httpSession);
         if (session == null) {
             System.out.println("Session " + httpSession + " not found");

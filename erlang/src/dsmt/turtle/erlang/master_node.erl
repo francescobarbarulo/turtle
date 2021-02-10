@@ -4,6 +4,8 @@
 -export([start/0, stop/0]).
 
 master_setup() ->
+  %% when process exits, send system message to self()
+  %% (used to detect failures on workers with spawn_link)
   process_flag(trap_exit, true),
   setup(maps:new()).
 
