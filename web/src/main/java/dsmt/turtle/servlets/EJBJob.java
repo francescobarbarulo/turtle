@@ -51,13 +51,12 @@ public class EJBJob extends HttpServlet {
         /* submit request to the Java-embedded master node */
         Future<String> result = erlangProducer.send(sessionId, classFileName, getContent(classFile), testClassFileName, getContent(testClassFile));
 
-        out.println("OK");
-        out.flush();        // this terminates the reply to the browser
-
         try {
             if (userAgent.contains("curl")) {   /* if request comes form curl, then blocking get */
                 out.println(result.get());
             } else {    /* else if request comes from browser, reply through websocket */
+                out.println("OK");
+                out.flush();        // this terminates the reply to the browser
                 System.out.println("Waiting for web async response");
                 UpdateEndpoint.sendAsyncResponse(sessionId, result.get());
                 System.out.println("Replying through web async response");
